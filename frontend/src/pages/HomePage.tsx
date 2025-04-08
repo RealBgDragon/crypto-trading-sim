@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { TrendingUp, TrendingDown, RefreshCw, Moon, Search, Sun, Info, ExternalLink, Clock, AlertCircle } from 'lucide-react';
+import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import { TrendingUp, TrendingDown, RefreshCw, Moon, Search, Sun, Info, ExternalLink, Clock, AlertCircle, SortAsc } from 'lucide-react';
 import axios from 'axios';
 
 // Map of crypto names to Kraken symbols
-const krakenSymbolMap = {
+const krakenSymbolMap: { [key: string]: string } = {
     Bitcoin: "XBTUSD",
     Ethereum: "ETHUSD",
     Tether: "USDTUSD",
@@ -51,8 +51,8 @@ const cryptoList = [
     { name: "Monero", symbol: "XMR", color: "#FF6600" }
 ];
 
-const mockChartData = Array.from({ length: 30 }, (_, i) => ({
-    date: `${i + 1}`,
+const mockChartData = Array.from({ length: 24 }, (_, i) => ({
+    date: `${i * 5} s`,
     price: 0
 }));
 
@@ -62,9 +62,11 @@ export default function CryptoDashboard() {
     const [searchQuery, setSearchQuery] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [chartData, setChartData] = useState(mockChartData);
-    const [timeframe, setTimeframe] = useState("30d");
+    const [timeframe, setTimeframe] = useState("2min");
     const [lastUpdated, setLastUpdated] = useState(new Date());
     const [showNotification, setShowNotification] = useState(false);
+    const [apiStatus, setApiStatus] = useState(false);
+
 
     // Theme-based style variables
     const themeColors = darkMode ? {
@@ -95,35 +97,55 @@ export default function CryptoDashboard() {
         chartGrid: "#e2e8f0"
     };
 
-    // Fetch crypto price data – replace with your actual API calls
     useEffect(() => {
+        // Connect api on page load
+        axios.get(`http://localhost:8080/api/start`)
+            .then(() => setApiStatus(true))
+            .catch(err => console.log('Error connecting to API: ', err));
+
         const fetchData = async () => {
-            setIsLoading(true);
-            const selectedCryptoObj = cryptoList.find(c => c.name === selectedCrypto);
+            //setIsLoading(true);
+            // const selectedCryptoObj = cryptoList.find(c => c.name === selectedCrypto);
             const pair = krakenSymbolMap[selectedCrypto];
 
             try {
-                const res = await axios.get(`http://localhost:8080/api/crypto/price/${pair}`);
+                //TODO make it with ws://localhost:8080/price-updates to detect websocket update
+
+                // const res = await axios.get(`http://localhost:8080/api/price/${pair}`);
+                const res = await axios.get(`http://localhost:8080/api/price`);
+                console.log(res);
+
                 const lastPrice = res.data.price;
 
-                const newChart = Array.from({ length: 30 }, (_, i) => {
-                    const variation = lastPrice * 0.05 * (Math.random() - 0.5);
-                    return {
-                        date: `${i + 1}`,
-                        price: lastPrice + variation
+                setChartData(prevData => {
+                    const newPoint = {
+                        date: `${prevData.length * 5} s`, // Ensure the date is a string, e.g., "Day 1", "Day 2"
+                        price: lastPrice,
                     };
+
+                    const updatedChart = [...prevData, newPoint];
+                    if (updatedChart.length > 30) {
+                        updatedChart.shift(); // Remove the first element if there are more than 30 points
+                    }
+                    return updatedChart;
                 });
-                setChartData(newChart);
+
+
                 setLastUpdated(new Date());
                 setShowNotification(true);
                 setTimeout(() => setShowNotification(false), 3000);
             } catch (err) {
                 console.error(err);
             }
-            setIsLoading(false);
+            //setIsLoading(false);
         };
 
-        fetchData();
+        //TODO Replace with websocket later
+        const intervalId = setInterval(fetchData, 5000);
+
+        // Cleanup the interval on component unmount
+        return () => clearInterval(intervalId);
+        // fetchData();
     }, [selectedCrypto, timeframe]);
 
     const filteredCryptos = cryptoList.filter(crypto =>
@@ -151,8 +173,14 @@ export default function CryptoDashboard() {
                         </h1>
                     </div>
                     <div className="flex items-center gap-4">
-                        <div className="text-xs px-3 py-1 rounded bg-green-500/10 text-green-400 border border-green-500/20 hidden md:block">
-                            API Connected
+                        {/* TODO Add some kind of handling so this does something */}
+                        <div
+                            className={`text-xs px-3 py-1 rounded ${apiStatus
+                                ? 'bg-green-500/10 text-green-400 border border-green-500/20' // When connected
+                                : 'bg-red-500/10 text-red-400 border border-red-500/20' // When not connected
+                                } hidden md:block`}
+                        >
+                            {apiStatus ? 'API Connected' : 'API Not Connected'}
                         </div>
                         <button
                             onClick={() => setDarkMode(!darkMode)}
@@ -247,6 +275,7 @@ export default function CryptoDashboard() {
                                                 <span className={`text-lg ${themeColors.textMuted}`}>{currentCrypto?.symbol}</span>
                                             </h2>
                                             <div className="flex items-center mt-1">
+                                                {/* //! Fix */}
                                                 <span className="text-2xl font-semibold">${chartData[chartData.length - 1]?.price.toFixed(2)}</span>
                                                 <div className={`ml-3 flex items-center ${positiveChange ? 'text-green-500' : 'text-red-500'}`}>
                                                     {positiveChange ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
@@ -344,27 +373,6 @@ export default function CryptoDashboard() {
                             </div>
                         </div>
 
-                        {/* Price Analysis Cards */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            {[
-                                { title: "24h Volume", value: "$285.4M", change: "+12.5%", changeIcon: <TrendingUp size={16} />, changeColor: "text-green-500", info: "Additional info" },
-                                { title: "Market Cap", value: "$892B", change: "-2.3%", changeIcon: <TrendingDown size={16} />, changeColor: "text-red-500", info: "Additional info" },
-                                { title: "Circulating Supply", value: "19.2M", change: "91.4% of max supply", changeIcon: null, changeColor: "text-gray-400", info: "Additional info" }
-                            ].map(({ title, value, change, changeIcon, changeColor }, idx) => (
-                                <div key={idx} className={`${themeColors.card} rounded-xl p-4 ${themeColors.border} shadow-sm`}>
-                                    <div className="flex justify-between items-center mb-3">
-                                        <h3 className="font-medium text-lg">{title}</h3>
-                                        <Info size={16} className="text-gray-400" />
-                                    </div>
-                                    <div className="text-2xl font-bold">{value}</div>
-                                    <div className={`flex items-center mt-1 text-sm ${changeColor}`}>
-                                        {changeIcon && <span className="mr-1">{changeIcon}</span>}
-                                        {change}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
                         {/* Mini Charts */}
                         <div>
                             <h3 className="text-2xl font-semibold mt-4 mb-2 flex items-center gap-2">
@@ -452,15 +460,7 @@ export default function CryptoDashboard() {
                             <span className="font-medium text-xl">CryptoVision Dashboard</span>
                         </div>
                         <div className={`${themeColors.textMuted} text-sm`}>
-                            Powered by Java Spring Backend • Kraken API • {new Date().getFullYear()}
-                        </div>
-                        <div className="flex gap-4">
-                            <button className={`px-4 py-2 rounded ${themeColors.buttonBg} ${themeColors.buttonHover} text-sm shadow`}>
-                                Documentation
-                            </button>
-                            <button className={`px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm shadow`}>
-                                API Status
-                            </button>
+                            Created by Martin Mihaylov {new Date().getFullYear()}
                         </div>
                     </div>
                 </div>

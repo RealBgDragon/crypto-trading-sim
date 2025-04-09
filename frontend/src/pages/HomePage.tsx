@@ -5,26 +5,26 @@ import axios from 'axios';
 
 // Map of crypto names to Kraken symbols
 const krakenSymbolMap: { [key: string]: string } = {
-    Bitcoin: "XBTUSD",
-    Ethereum: "ETHUSD",
-    Tether: "USDTUSD",
-    Tron: "TRXUSD",
-    Solana: "SOLUSD",
-    XRP: "XRPUSD",
-    USDC: "USDCUSD",
-    Cardano: "ADAUSD",
-    Avalanche: "AVAXUSD",
-    Dogecoin: "DOGEUSD",
-    Polkadot: "DOTUSD",
-    "Shiba Inu": "SHIBUSD",
-    Polygon: "MATICUSD",
-    Dai: "DAIUSD",
-    Litecoin: "LTCUSD",
-    Chainlink: "LINKUSD",
-    Cosmos: "ATOMUSD",
-    Stellar: "XLMUSD",
-    Uniswap: "UNIUSD",
-    Monero: "XMRUSD"
+    Bitcoin: "XBT_USD",
+    Ethereum: "ETH_USD",
+    Tether: "USDT_USD",
+    Tron: "TRX_USD",
+    Solana: "SOL_USD",
+    XRP: "XRP_USD",
+    USDC: "USDC_USD",
+    Cardano: "ADA_USD",
+    Avalanche: "AVAX_USD",
+    Dogecoin: "DOGE_USD",
+    Polkadot: "DOT_USD",
+    "Shiba Inu": "SHIB_USD",
+    Polygon: "MATIC_USD",
+    Dai: "DAI_USD",
+    Litecoin: "LTC_USD",
+    Chainlink: "LINK_USD",
+    Cosmos: "ATOM_USD",
+    Stellar: "XLM_USD",
+    Uniswap: "UNI_USD",
+    Monero: "XMR_USD"
 };
 
 // Crypto list with additional metadata
@@ -56,6 +56,11 @@ const mockChartData = Array.from({ length: 24 }, (_, i) => ({
     price: 0
 }));
 
+const getRandomElements = (array, n) => {
+    const shuffled = [...array].sort(() => 0.5 - Math.random());
+    return shuffled.slice(0, n);
+};
+
 export default function CryptoDashboard() {
     const [darkMode, setDarkMode] = useState(true);
     const [selectedCrypto, setSelectedCrypto] = useState("Bitcoin");
@@ -66,6 +71,8 @@ export default function CryptoDashboard() {
     const [lastUpdated, setLastUpdated] = useState(new Date());
     const [showNotification, setShowNotification] = useState(false);
     const [apiStatus, setApiStatus] = useState(false);
+    // const [topCurrencies, setTopCurrencies] = useState([{}]);
+    // const [topCurrencyPrices, setTopCurrencyPrices] = useState({});
 
 
     // Theme-based style variables
@@ -103,16 +110,21 @@ export default function CryptoDashboard() {
             .then(() => setApiStatus(true))
             .catch(err => console.log('Error connecting to API: ', err));
 
+        // Pick random top currencies excluding selected one
+        // const nonCurrentCryptos = cryptoList.filter(crypto => crypto.name !== selectedCrypto);
+        // const randomTopCurrencies = getRandomElements(nonCurrentCryptos, 6);
+        // setTopCurrencies(randomTopCurrencies);
+        // console.log(randomTopCurrencies);
+
         const fetchData = async () => {
             //setIsLoading(true);
             // const selectedCryptoObj = cryptoList.find(c => c.name === selectedCrypto);
             const pair = krakenSymbolMap[selectedCrypto];
+            console.log(pair);
+
 
             try {
-                //TODO make it with ws://localhost:8080/price-updates to detect websocket update
-
-                // const res = await axios.get(`http://localhost:8080/api/price/${pair}`);
-                const res = await axios.get(`http://localhost:8080/api/price`);
+                const res = await axios.get(`http://localhost:8080/api/price/${pair}`);
                 console.log(res);
 
                 const lastPrice = res.data.price;
@@ -140,7 +152,7 @@ export default function CryptoDashboard() {
             //setIsLoading(false);
         };
 
-        //TODO Replace with websocket later
+        // adding 5 second update interval
         const intervalId = setInterval(fetchData, 5000);
 
         // Cleanup the interval on component unmount
@@ -233,7 +245,13 @@ export default function CryptoDashboard() {
                                         className={`w-full text-left p-3 transition-colors flex items-center ${selectedCrypto === crypto.name
                                             ? `${themeColors.selectedBg} text-white`
                                             : `${themeColors.cardHover}`}`}
-                                        onClick={() => setSelectedCrypto(crypto.name)}
+                                        onClick={() => {
+
+                                            setSelectedCrypto(crypto.name);
+                                            setChartData(mockChartData);
+
+                                        }
+                                        }
                                     >
                                         <div
                                             className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white mr-3"

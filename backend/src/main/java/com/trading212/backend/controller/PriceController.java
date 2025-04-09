@@ -5,6 +5,7 @@ import com.trading212.backend.service.PriceService;
 import com.trading212.backend.service.WebSocketClientService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -24,9 +25,10 @@ public class PriceController {
         return "Connected to Kraken WebSocket!";
     }
 
-    @GetMapping("/price")
-    public PriceDTO getPrice(){
-        return priceService.getLatestPrice();
+    @GetMapping("/price/{pair}")
+    public PriceDTO getPrice(@PathVariable String pair){
+        pair = pair.replace("_", "/");
+        return priceService.getLatestPrice(pair);
     }
 
     @GetMapping("/stop")

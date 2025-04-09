@@ -11,6 +11,8 @@ import org.springframework.stereotype.Service;
 
 import javax.management.RuntimeErrorException;
 import java.net.URI;
+import java.util.Arrays;
+import java.util.List;
 
 @Service
 public class WebSocketClientService {
@@ -23,13 +25,23 @@ public class WebSocketClientService {
     private PriceService priceService;
 
     public void connectToKraken() {
+
+        List<String> pairs = Arrays.asList(
+                "XBT/USD", "ETH/USD", "USDT/USD", "TRX/USD", "SOL/USD",
+                "XRP/USD", "USDC/USD", "ADA/USD", "AVAX/USD", "DOGE/USD",
+                "DOT/USD", "SHIB/USD", "MATIC/USD", "DAI/USD", "LTC/USD",
+                "LINK/USD", "ATOM/USD", "XLM/USD", "UNI/USD", "XMR/USD"
+        );
+
         try{
             System.out.println("here");
             webSocketClient = new WebSocketClient(new URI(KRAKEN_WS_URL), new Draft_6455()) {
                 @Override
                 public void onOpen(ServerHandshake serverHandshake) {
                     System.out.println("WebSocket connected: " + serverHandshake.getHttpStatusMessage());
-                    subscribeToTicker("BTC/USD");
+                    for (String pair : pairs) {
+                        subscribeToTicker(pair);
+                    }
                 }
 
                 @Override

@@ -94,7 +94,7 @@ export default function AuthPage() {
             valid = false;
         }
 
-        // Registration-specific validations
+        // Registration validations
         if (!isLogin) {
             if (!formData.username) {
                 errors.username = 'Username is required';
@@ -127,23 +127,25 @@ export default function AuthPage() {
         try {
             // In a real app, these would be your actual API endpoints
             const endpoint = isLogin ? 'http://localhost:8080/api/login' : 'http://localhost:8080/api/register';
+            console.log(endpoint);
 
             // For demo purposes, we're simulating a successful response
-            // const response = await axios.post(endpoint, {
-            //   email: formData.email,
-            //   password: formData.password,
-            //   ...(isLogin ? {} : { username: formData.username })
-            // });
+            await axios.post(endpoint, {
+                email: formData.email,
+                password: formData.password,
+                ...(isLogin ? {} : { username: formData.username })
+            }).then(res => console.log(res)     //! For debug remove later
+            );
 
             // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            // await new Promise(resolve => setTimeout(resolve, 1000));
 
             console.log(`${isLogin ? 'Login' : 'Registration'} successful`);
             setAuthSuccess(true);
 
             // Redirect to dashboard after successful auth
             setTimeout(() => {
-                window.location.href = '/dashboard';
+                window.location.href = '/';
             }, 1500);
 
         } catch (error) {
@@ -177,9 +179,11 @@ export default function AuthPage() {
                         <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg">
                             <TrendingUp className="text-white" size={20} />
                         </div>
-                        <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
-                            Crypto<strong>Vision</strong>
-                        </h1>
+                        <a href='http://localhost:5173/'>
+                            <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
+                                Crypto<strong>Vision</strong>
+                            </h1>
+                        </a>
                     </div>
                     <button
                         onClick={() => setDarkMode(!darkMode)}
@@ -434,24 +438,6 @@ export default function AuthPage() {
                     </div>
                 </div>
             </footer>
-
-            {/* Extra styling - Animation keyframes */}
-            <style jsx>{`
-        @keyframes progress {
-          0% { width: 0% }
-          100% { width: 100% }
-        }
-        @keyframes fade-in {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-progress {
-          animation: progress 1.5s ease-in-out;
-        }
-        .animate-fade-in {
-          animation: fade-in 0.5s ease-out;
-        }
-      `}</style>
         </div>
     );
 }

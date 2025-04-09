@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { TrendingUp, TrendingDown, RefreshCw, Moon, Search, Sun, Info, ExternalLink, Clock, AlertCircle, SortAsc } from 'lucide-react';
 import axios from 'axios';
+import { redirect } from 'react-router-dom';
 
 // Map of crypto names to Kraken symbols
 const krakenSymbolMap: { [key: string]: string } = {
@@ -56,7 +57,7 @@ const mockChartData = Array.from({ length: 24 }, (_, i) => ({
     price: 0
 }));
 
-const getRandomElements = (array, n) => {
+const getRandomElements = (array: { name: string; symbol: string; color: string; }[], n: number | undefined) => {
     const shuffled = [...array].sort(() => 0.5 - Math.random());
     return shuffled.slice(0, n);
 };
@@ -71,7 +72,7 @@ export default function CryptoDashboard() {
     const [lastUpdated, setLastUpdated] = useState(new Date());
     const [showNotification, setShowNotification] = useState(false);
     const [apiStatus, setApiStatus] = useState(false);
-    // const [topCurrencies, setTopCurrencies] = useState([{}]);
+    const [topCurrencies, setTopCurrencies] = useState(cryptoList);
     // const [topCurrencyPrices, setTopCurrencyPrices] = useState({});
 
 
@@ -111,11 +112,13 @@ export default function CryptoDashboard() {
             .catch(err => console.log('Error connecting to API: ', err));
 
         // Pick random top currencies excluding selected one
-        // const nonCurrentCryptos = cryptoList.filter(crypto => crypto.name !== selectedCrypto);
-        // const randomTopCurrencies = getRandomElements(nonCurrentCryptos, 6);
-        // setTopCurrencies(randomTopCurrencies);
+        const nonCurrentCryptos = cryptoList.filter(crypto => crypto.name !== selectedCrypto);
+        const randomTopCurrencies = getRandomElements(nonCurrentCryptos, 6);
+        setTopCurrencies(randomTopCurrencies);
         // console.log(randomTopCurrencies);
+    }, []);
 
+    useEffect(() => {
         const fetchData = async () => {
             //setIsLoading(true);
             // const selectedCryptoObj = cryptoList.find(c => c.name === selectedCrypto);
@@ -128,6 +131,8 @@ export default function CryptoDashboard() {
                 console.log(res);
 
                 const lastPrice = res.data.price;
+
+                console.log(topCurrencies);
 
                 setChartData(prevData => {
                     const newPoint = {
@@ -151,6 +156,8 @@ export default function CryptoDashboard() {
             }
             //setIsLoading(false);
         };
+
+        fetchData();
 
         // adding 5 second update interval
         const intervalId = setInterval(fetchData, 5000);
@@ -200,6 +207,12 @@ export default function CryptoDashboard() {
                         >
                             {darkMode ? <Sun className="text-yellow-400" size={20} /> : <Moon className="text-blue-600" size={20} />}
                         </button>
+                        <a
+                            href='http://localhost:5173/login'
+                            className={`p-2 rounded-full ${themeColors.buttonBg} ${themeColors.buttonHover} focus:outline-none shadow-md`}
+                        >
+                            Login
+                        </a>
                     </div>
                 </div>
             </header>
@@ -478,7 +491,7 @@ export default function CryptoDashboard() {
                             <span className="font-medium text-xl">CryptoVision Dashboard</span>
                         </div>
                         <div className={`${themeColors.textMuted} text-sm`}>
-                            Created by Martin Mihaylov {new Date().getFullYear()}
+                            © {new Date().getFullYear()} Martin Mihaylov. All rights reserved.
                         </div>
                     </div>
                 </div>

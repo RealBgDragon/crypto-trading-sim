@@ -125,35 +125,49 @@ export default function AuthPage() {
         setIsLoading(true);
 
         try {
-            // In a real app, these would be your actual API endpoints
             const endpoint = isLogin ? 'http://localhost:8080/api/login' : 'http://localhost:8080/api/register';
             console.log(endpoint);
 
-            // For demo purposes, we're simulating a successful response
             await axios.post(endpoint, {
                 email: formData.email,
                 password: formData.password,
                 ...(isLogin ? {} : { username: formData.username })
-            }).then(res => console.log(res)     //! For debug remove later
-            );
+            }).then(res => {
+                if (res.status != 200) {
+                    setAuthError(isLogin
+                        ? 'Invalid email or password. Please try again.'
+                        : 'Register error. Please try again.'
+                    );
+                }
+                else {
+                    setAuthSuccess(true)
+                }
+            }
 
-            // Simulate API call
-            // await new Promise(resolve => setTimeout(resolve, 1000));
+            )
+                .catch(err => {
+                    console.log(err);
+                    if (err.code.includes("ERR_NETWORK")) {
+                        setAuthError('Connection error. Please try again later.');
+                    } else if (err.status == 500) {
+                        setAuthError('Server error. Please contact support.');
+                    } else {
+                        setAuthError(err.response.data);
+                    }
+                }
+                );
 
             console.log(`${isLogin ? 'Login' : 'Registration'} successful`);
-            setAuthSuccess(true);
 
-            // Redirect to dashboard after successful auth
-            setTimeout(() => {
-                window.location.href = '/';
-            }, 1500);
+            //TODO Redirect to dashboard after successful auth
+            // setTimeout(() => {
+            //     window.location.href = '/';
+            // }, 1500);
 
         } catch (error) {
             console.error('Authentication error:', error);
-            setAuthError(isLogin
-                ? 'Invalid email or password. Please try again.'
-                : 'Registration failed. Please try again.'
-            );
+
+
         } finally {
             setIsLoading(false);
         }

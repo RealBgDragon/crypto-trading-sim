@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { TrendingUp, TrendingDown, RefreshCw, Moon, Search, Sun, Info, ExternalLink, Clock, AlertCircle, SortAsc } from 'lucide-react';
+import { TrendingUp, TrendingDown, RefreshCw, Moon, Search, Sun, ExternalLink, Clock, AlertCircle } from 'lucide-react';
 import axios from 'axios';
-import { redirect } from 'react-router-dom';
 
 // Map of crypto names to Kraken symbols
 const krakenSymbolMap: { [key: string]: string } = {
@@ -123,16 +122,14 @@ export default function CryptoDashboard() {
             //setIsLoading(true);
             // const selectedCryptoObj = cryptoList.find(c => c.name === selectedCrypto);
             const pair = krakenSymbolMap[selectedCrypto];
-            console.log(pair);
-
 
             try {
+                console.log(topCurrencies);
                 const res = await axios.get(`http://localhost:8080/api/price/${pair}`);
                 console.log(res);
 
                 const lastPrice = res.data.price;
 
-                console.log(topCurrencies);
 
                 setChartData(prevData => {
                     const newPoint = {

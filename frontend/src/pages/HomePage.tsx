@@ -72,6 +72,10 @@ export default function CryptoDashboard() {
     const [showNotification, setShowNotification] = useState(false);
     const [apiStatus, setApiStatus] = useState(false);
     const [topCurrencies, setTopCurrencies] = useState(cryptoList);
+    const [accountBalance, setAccountBalance] = useState(0);
+
+    // const user = JSON.parse(sessionStorage.getItem("user"));
+
     // const [topCurrencyPrices, setTopCurrencyPrices] = useState({});
 
 
@@ -115,6 +119,16 @@ export default function CryptoDashboard() {
         const randomTopCurrencies = getRandomElements(nonCurrentCryptos, 6);
         setTopCurrencies(randomTopCurrencies);
         // console.log(randomTopCurrencies);
+    }, [selectedCrypto]);
+
+    useEffect(() => {
+        axios.post("http://localhost:8080/api/user/balance",
+            {
+
+            }
+        )
+            .then(res => setAccountBalance(res.data))
+            .catch(() => setAccountBalance(0))
     }, []);
 
     useEffect(() => {
@@ -174,6 +188,7 @@ export default function CryptoDashboard() {
     const changePercent = ((priceChange / chartData[0]?.price) * 100).toFixed(2);
     const currentCrypto = cryptoList.find(c => c.name === selectedCrypto);
     const chartColor = currentCrypto?.color || "#3b82f6";
+    const isLoggedIn = true
 
     return (
         <div className={`min-h-screen ${themeColors.background} ${themeColors.text} transition-colors duration-200`}>
@@ -188,8 +203,20 @@ export default function CryptoDashboard() {
                             Crypto<strong>Vision</strong>
                         </h1>
                     </div>
+
                     <div className="flex items-center gap-4">
-                        {/* TODO Add some kind of handling so this does something */}
+                        {/* Account Balance */}
+                        {isLoggedIn && (
+                            <div className={`${themeColors.card} px-4 py-2 rounded-lg border ${themeColors.border} shadow-md hidden md:block`}>
+                                <div className="text-xs uppercase font-semibold opacity-70">Balance</div>
+                                <div className="font-mono font-bold text-lg">
+                                    ${accountBalance.toLocaleString()}
+                                    <span className="text-xs ml-1 opacity-60">$</span>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* API Status Indicator */}
                         <div
                             className={`text-xs px-3 py-1 rounded ${apiStatus
                                 ? 'bg-green-500/10 text-green-400 border border-green-500/20' // When connected
@@ -198,17 +225,22 @@ export default function CryptoDashboard() {
                         >
                             {apiStatus ? 'API Connected' : 'API Not Connected'}
                         </div>
+
+                        {/* Theme Toggle Button */}
                         <button
                             onClick={() => setDarkMode(!darkMode)}
                             className={`p-2 rounded-full ${themeColors.buttonBg} ${themeColors.buttonHover} focus:outline-none shadow-md`}
                         >
                             {darkMode ? <Sun className="text-yellow-400" size={20} /> : <Moon className="text-blue-600" size={20} />}
                         </button>
+
+                        {/* Improved Login Button */}
                         <a
                             href='http://localhost:5173/login'
-                            className={`p-2 rounded-full ${themeColors.buttonBg} ${themeColors.buttonHover} focus:outline-none shadow-md`}
+                            className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:shadow-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-300`}
                         >
-                            Login
+                            {/* <LogIn size={18} /> */}
+                            <span>Login</span>
                         </a>
                     </div>
                 </div>

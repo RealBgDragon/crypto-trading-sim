@@ -1,5 +1,7 @@
 package com.trading212.backend.repository;
 
+import com.trading212.backend.dto.UserDTO;
+import org.apache.catalina.User;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -27,10 +29,16 @@ public class UserRepository {
         }
     }
 
-    public String checkUser(String email){
-        String sql = "SELECT password FROM users WHERE email = ?";
+    public UserDTO checkUser(String email){
+        String sql = "SELECT password, id, username FROM users WHERE email = ?";
         try {
-            return jdbc.queryForObject(sql, String.class, email);
+            return jdbc.queryForObject(sql, (rs, rowNum) -> {
+                UserDTO userDTO = new UserDTO();
+                userDTO.setPassword(rs.getString("password"));
+                userDTO.setUsername(rs.getString("username"));
+                userDTO.setId(rs.getInt("id"));
+                return userDTO;
+            }, email);
         } catch (EmptyResultDataAccessException e) {
             return null;
         }

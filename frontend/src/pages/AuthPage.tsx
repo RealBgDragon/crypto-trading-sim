@@ -133,14 +133,26 @@ export default function AuthPage() {
                 password: formData.password,
                 ...(isLogin ? {} : { username: formData.username })
             }).then(res => {
-                if (res.status != 200) {
+                if (res.status == 200) {
+
+                    setAuthSuccess(true)
+
+                    // if its a login setup session
+                    if (isLogin) {
+                        const userData = res.data;
+                        console.log(userData);
+                        sessionStorage.setItem('user', JSON.stringify({
+                            userId: userData.id,
+                            username: userData.username,
+                            isLoggedIn: true
+                        }));
+                    }
+                }
+                else {
                     setAuthError(isLogin
                         ? 'Invalid email or password. Please try again.'
                         : 'Register error. Please try again.'
                     );
-                }
-                else {
-                    setAuthSuccess(true)
                 }
             }
 

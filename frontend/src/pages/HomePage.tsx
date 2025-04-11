@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { TrendingUp, TrendingDown, RefreshCw, Moon, Search, Sun, ExternalLink, Clock, AlertCircle } from 'lucide-react';
+import { TrendingUp, TrendingDown, RefreshCw, Moon, Search, Sun, ExternalLink, Clock, AlertCircle, LogOut, User, LogIn } from 'lucide-react';
 import axios from 'axios';
 
 // Map of crypto names to Kraken symbols
@@ -73,10 +73,12 @@ export default function CryptoDashboard() {
     const [apiStatus, setApiStatus] = useState(false);
     const [topCurrencies, setTopCurrencies] = useState(cryptoList);
     const [accountBalance, setAccountBalance] = useState(0);
+    const [username, setUsername] = useState<string | null>(null);
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-    // const user = JSON.parse(sessionStorage.getItem("user"));
 
-    // const [topCurrencyPrices, setTopCurrencyPrices] = useState({});
+
+    const [topCurrencyPrices, setTopCurrencyPrices] = useState({});
 
 
     // Theme-based style variables
@@ -109,17 +111,28 @@ export default function CryptoDashboard() {
     };
 
     useEffect(() => {
+
+        // Check if user is logged in
+        const user = sessionStorage.getItem("user");
+        if (user) {
+            try {
+                const userData = JSON.parse(user);
+                setUsername(userData.name || userData.username || "User");
+                setIsLoggedIn(userData.isLoggedIn)
+            } catch (e) {
+                setUsername(user);
+            }
+        }
+
         // Connect api on page load
         axios.get(`http://localhost:8080/api/start`)
             .then(() => setApiStatus(true))
             .catch(err => console.log('Error connecting to API: ', err));
 
-        // Pick random top currencies excluding selected one
         const nonCurrentCryptos = cryptoList.filter(crypto => crypto.name !== selectedCrypto);
         const randomTopCurrencies = getRandomElements(nonCurrentCryptos, 6);
         setTopCurrencies(randomTopCurrencies);
-        // console.log(randomTopCurrencies);
-    }, [selectedCrypto]);
+    }, [selectedCrypto, username]);
 
     useEffect(() => {
         axios.post("http://localhost:8080/api/user/balance",
@@ -131,6 +144,11 @@ export default function CryptoDashboard() {
             .catch(() => setAccountBalance(0))
     }, []);
 
+    const getItemPrice = (pair: string) => {
+        const res = axios.get(`http://localhost:8080/api/price/${pair}`);
+        return res;
+    }
+
     useEffect(() => {
         const fetchData = async () => {
             //setIsLoading(true);
@@ -139,8 +157,13 @@ export default function CryptoDashboard() {
 
             try {
                 console.log(topCurrencies);
-                const res = await axios.get(`http://localhost:8080/api/price/${pair}`);
+                const res = await getItemPrice(pair)
+                // const res = await axios.get(`http://localhost:8080/api/price/${pair}`);
                 console.log(res);
+
+                const responses = await Promise.all(
+                    topCurrencies.map(c => getItemPrice(c.symbol))
+                );
 
                 const lastPrice = res.data.price;
 
@@ -158,6 +181,25 @@ export default function CryptoDashboard() {
                     return updatedChart;
                 });
 
+                setTopCurrencyPrices(prevPrices => {
+                    const updated = { ...prevPrices };
+                    responses.forEach((res, index) => {
+                        const symbol = topCurrencies[index].symbol;
+                        const price = res.data.price;
+
+                        const prev = updated[symbol] || [];
+                        const newPoint = {
+                            date: `${prev.length * 5} s`,
+                            price: price,
+                        };
+
+                        const updatedPoints = [...prev, newPoint];
+                        if (updatedPoints.length > 30) updatedPoints.shift();
+
+                        updated[symbol] = updatedPoints;
+                    });
+                    return updated;
+                });
 
                 setLastUpdated(new Date());
                 setShowNotification(true);
@@ -176,19 +218,23 @@ export default function CryptoDashboard() {
         // Cleanup the interval on component unmount
         return () => clearInterval(intervalId);
         // fetchData();
-    }, [selectedCrypto, timeframe]);
+    }, [selectedCrypto, timeframe, topCurrencies]);
 
     const filteredCryptos = cryptoList.filter(crypto =>
         crypto.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         crypto.symbol.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+    const handleLogout = () => {
+        sessionStorage.clear();
+        window.location.reload();
+    }
+
     const priceChange = chartData[chartData.length - 1]?.price - chartData[0]?.price;
     const positiveChange = priceChange >= 0;
     const changePercent = ((priceChange / chartData[0]?.price) * 100).toFixed(2);
     const currentCrypto = cryptoList.find(c => c.name === selectedCrypto);
     const chartColor = currentCrypto?.color || "#3b82f6";
-    const isLoggedIn = true
 
     return (
         <div className={`min-h-screen ${themeColors.background} ${themeColors.text} transition-colors duration-200`}>
@@ -206,7 +252,7 @@ export default function CryptoDashboard() {
 
                     <div className="flex items-center gap-4">
                         {/* Account Balance */}
-                        {isLoggedIn && (
+                        {username && (
                             <div className={`${themeColors.card} px-4 py-2 rounded-lg border ${themeColors.border} shadow-md hidden md:block`}>
                                 <div className="text-xs uppercase font-semibold opacity-70">Balance</div>
                                 <div className="font-mono font-bold text-lg">
@@ -235,13 +281,24 @@ export default function CryptoDashboard() {
                         </button>
 
                         {/* Improved Login Button */}
-                        <a
-                            href='http://localhost:5173/login'
-                            className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:shadow-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-300`}
-                        >
-                            {/* <LogIn size={18} /> */}
-                            <span>Login</span>
-                        </a>
+                        {isLoggedIn ? (
+                            <button
+                                onClick={handleLogout}
+                                className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:shadow-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-300`}
+                            >
+                                <User size={18} />
+                                <span>Hello, {username}</span>
+                                <LogOut size={18} />
+                            </button>
+                        ) : (
+                            <a
+                                href='http://localhost:5173/login'
+                                className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:shadow-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-300`}
+                            >
+                                <LogIn size={18} />
+                                <span>Login</span>
+                            </a>
+                        )}
                     </div>
                 </div>
             </header>
@@ -442,8 +499,9 @@ export default function CryptoDashboard() {
                                 </span>
                             </h3>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {cryptoList.slice(1, 7).map((crypto, index) => {
-                                    const randomPrice = (1000 + Math.random() * 3000).toFixed(2);
+                                {topCurrencies.slice(1, 7).map((crypto, index) => {
+                                    const name = crypto.name;
+                                    const currencyPrice = topCurrencyPrices.name;
                                     const randomChange = (Math.random() * 10 - 3).toFixed(2);
                                     const isPositive = parseFloat(randomChange) >= 0;
                                     const miniChartData = Array.from({ length: 20 }, () => ({
@@ -473,7 +531,7 @@ export default function CryptoDashboard() {
                                             </div>
                                             <div className="flex justify-between items-end">
                                                 <div>
-                                                    <span className="text-xl font-bold">${randomPrice}</span>
+                                                    <span className="text-xl font-bold">${currencyPrice}</span>
                                                 </div>
                                                 <div className="flex items-center gap-1 text-xs text-gray-400">
                                                     <ExternalLink size={14} />

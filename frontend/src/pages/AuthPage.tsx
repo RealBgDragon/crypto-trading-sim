@@ -171,10 +171,15 @@ export default function AuthPage() {
 
             console.log(`${isLogin ? 'Login' : 'Registration'} successful`);
 
-            //TODO Redirect to dashboard after successful auth
-            // setTimeout(() => {
-            //     window.location.href = '/';
-            // }, 1500);
+            if (isLogin) {
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 1500);
+            } else {
+                setTimeout(() => {
+                    window.location.href = '/login'
+                }, 1500)
+            }
 
         } catch (error) {
             console.error('Authentication error:', error);
@@ -387,28 +392,6 @@ export default function AuthPage() {
                                                     {formErrors.confirmPassword}
                                                 </p>
                                             )}
-                                        </div>
-                                    )}
-
-                                    {/* Remember Me & Forgot Password - Only for Login */}
-                                    {isLogin && (
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center">
-                                                <input
-                                                    id="remember-me"
-                                                    name="remember-me"
-                                                    type="checkbox"
-                                                    className={`h-4 w-4 rounded border-gray-300 ${themeColors.focus}`}
-                                                />
-                                                <label htmlFor="remember-me" className={`ml-2 block text-sm ${themeColors.textSecondary}`}>
-                                                    Remember me
-                                                </label>
-                                            </div>
-                                            <div className="text-sm">
-                                                <a href="#" className="text-blue-500 hover:text-blue-400">
-                                                    Forgot password?
-                                                </a>
-                                            </div>
                                         </div>
                                     )}
 

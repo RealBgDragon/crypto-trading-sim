@@ -17,7 +17,7 @@ import java.util.List;
 @Service
 public class WebSocketClientService {
 
-    private static final String KRAKEN_WS_URL = "wss://ws.kraken.com/v2";   //TODO if causes problems its cuz v2
+    private static final String KRAKEN_WS_URL = "wss://ws.kraken.com/";   //TODO if causes problems its cuz v2
 
     private WebSocketClient webSocketClient;
 

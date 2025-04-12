@@ -60,7 +60,7 @@ public class WebSocketClientService {
                             JsonNode pair = rootNode.get(3); // that's the pair
 
                             PriceDTO priceDTO = new PriceDTO(pair.asText(), price.asDouble());
-                            System.out.println(price);
+//                            System.out.println(price);
                             //TODO decide if needed
                             priceService.updatePrice(priceDTO);  // A service to store/update the latest price so I can add a graph
                         }
@@ -87,10 +87,16 @@ public class WebSocketClientService {
         }
     }
 
-    private void subscribeToTicker(String pair) {
-        String subscriptionMessage = String.format("{\"event\": \"subscribe\", \"pair\": [\"%s\"], \"subscription\": {\"name\": \"ticker\"}}", pair);
-        webSocketClient.send(subscriptionMessage); // Send the subscription message to Kraken
+    public void subscribeToTicker(String pair) {
+        if (webSocketClient != null && webSocketClient.isOpen()) {
+            String subscribeMessage = "{ \"event\": \"subscribe\", \"pair\": [\"" + pair + "\"], \"subscription\": {\"name\": \"ticker\"}}";
+            webSocketClient.send(subscribeMessage);
+            System.out.println("Subscribed to " + pair);
+        } else {
+            System.out.println("WebSocket not open yet, can't subscribe to " + pair);
+        }
     }
+
 
     public void closeConnection() {
         if (webSocketClient != null && webSocketClient.isOpen()) {

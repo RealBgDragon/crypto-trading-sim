@@ -4,6 +4,7 @@ import com.trading212.backend.dto.PriceDTO;
 import com.trading212.backend.service.PriceService;
 import com.trading212.backend.service.WebSocketClientService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.support.NullValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -28,7 +29,13 @@ public class PriceController {
     @GetMapping("/price/{pair}")
     public PriceDTO getPrice(@PathVariable String pair){
         pair = pair.replace("_", "/");
-        return priceService.getLatestPrice(pair);
+        try {
+            System.out.println(priceService.getLatestPrice(pair).getPair() + priceService.getLatestPrice(pair).getPrice());
+            return priceService.getLatestPrice(pair);
+        }catch (NullPointerException e){
+            System.out.println(e);
+        }
+        return null;
     }
 
     @GetMapping("/stop")

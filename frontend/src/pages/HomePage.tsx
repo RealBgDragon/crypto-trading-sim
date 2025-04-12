@@ -58,7 +58,7 @@ const mockChartData = Array.from({ length: 24 }, (_, i) => ({
 
 const getRandomElements = (array: { name: string; symbol: string; color: string; }[], n: number | undefined) => {
     const shuffled = [...array].sort(() => 0.5 - Math.random());
-    return shuffled.slice(0, n);
+    return shuffled.slice(0, n + 1);
 };
 
 export default function CryptoDashboard() {
@@ -144,8 +144,8 @@ export default function CryptoDashboard() {
             .catch(() => setAccountBalance(0))
     }, []);
 
-    const getItemPrice = (pair: string) => {
-        const res = axios.get(`http://localhost:8080/api/price/${pair}`);
+    const getItemPrice = async (pair: string) => {
+        const res = await axios.get(`http://localhost:8080/api/price/${pair}`);
         return res;
     }
 
@@ -156,14 +156,20 @@ export default function CryptoDashboard() {
             const pair = krakenSymbolMap[selectedCrypto];
 
             try {
-                console.log(topCurrencies);
+                // console.log(topCurrencies);
                 const res = await getItemPrice(pair)
                 // const res = await axios.get(`http://localhost:8080/api/price/${pair}`);
-                console.log(res);
 
                 const responses = await Promise.all(
-                    topCurrencies.map(c => getItemPrice(c.symbol))
+                    topCurrencies.map(async (c) => {
+                        const symbol = krakenSymbolMap[c.symbol];
+                        const price = await getItemPrice(symbol);
+                        console.log(`Response for ${c.symbol}:`, price); // Log each response
+                        return price;
+                    })
                 );
+
+                console.log(responses);
 
                 const lastPrice = res.data.price;
 
@@ -200,6 +206,8 @@ export default function CryptoDashboard() {
                     });
                     return updated;
                 });
+                // console.log(topCurrencyPrices);
+
 
                 setLastUpdated(new Date());
                 setShowNotification(true);

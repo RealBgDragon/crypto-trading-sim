@@ -5,6 +5,8 @@ import com.trading212.backend.service.PriceService;
 import com.trading212.backend.service.WebSocketClientService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.support.NullValue;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,17 +22,20 @@ public class PriceController {
     @Autowired
     private PriceService priceService;
 
-    @GetMapping("/start")
-    public String startWebSocket(){
-        webSocketClientService.connectToKraken();
-        return "Connected to Kraken WebSocket!";
+    @GetMapping("/status")
+    public ResponseEntity<?> getConnectionStatus() {
+        if(webSocketClientService.isConnected()){
+            return ResponseEntity.ok("API is connected!");
+        } else {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body("API is not connected!");
+        }
+
     }
 
     @GetMapping("/price/{pair}")
     public PriceDTO getPrice(@PathVariable String pair){
         pair = pair.replace("_", "/");
         try {
-            System.out.println(priceService.getLatestPrice(pair).getPair() + priceService.getLatestPrice(pair).getPrice());
             return priceService.getLatestPrice(pair);
         }catch (NullPointerException e){
             System.out.println(e);

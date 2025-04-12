@@ -6,7 +6,12 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
+
+import java.sql.PreparedStatement;
+import java.sql.Statement;
 
 @Repository
 public class UserRepository {
@@ -18,9 +23,29 @@ public class UserRepository {
     }
 
     public String saveUser(String email, String password, String username){
+
         try {
-            String sql = "INSERT INTO users (email, password, username) VALUES (?, ?, ?)";
-            jdbc.update(sql, email, password, username);
+            // Insert the user
+            String userSql = "INSERT INTO users (email, password, username) VALUES (?, ?, ?)";
+            KeyHolder keyHolder = new GeneratedKeyHolder();
+
+            jdbc.update(connection -> {
+                PreparedStatement ps = connection.prepareStatement(userSql, Statement.RETURN_GENERATED_KEYS);
+                ps.setString(1, email);
+                ps.setString(2, password);
+                ps.setString(3, username);
+                return ps;
+            }, keyHolder);
+
+            // Get the generated user ID
+            Long userId = keyHolder.getKey().longValue();
+
+            // Insert into account_balance table
+            String balanceSql = "INSERT INTO account_balance (user_id, balance) VALUES (?, ?)";
+            jdbc.update(balanceSql, userId, 10000);
+
+            // Commit the transaction
+
             return "Success";
         } catch (DuplicateKeyException e){
             return "Email already exists";

@@ -14,12 +14,24 @@ public class UserAccountRepository {
         this.jdbc = jdbc;
     }
 
-    public String getUserBalance(int user_id){
-        String sql = "SELECT password FROM users WHERE id = ?";
+    public Double getUserBalance(int userId){
+        String sql = "SELECT balance FROM account_balance WHERE user_id = ?";
         try{
-            return jdbc.queryForObject(sql, String.class, user_id);
+            return jdbc.queryForObject(sql, Double.class, userId);
         } catch (EmptyResultDataAccessException e){
-            return null;
+            return -1.0;
+        }
+    }
+
+    public String setUserBalance(int userId){
+        String sql = "UPDATE account_balance SET balance = ?  WHERE user_id = ?";
+        try{
+            jdbc.update(sql, 10000, userId);
+            return "Success";
+        } catch (EmptyResultDataAccessException e){
+            return "No such user";
+        } catch (Exception e){
+            return "Error";
         }
     }
 

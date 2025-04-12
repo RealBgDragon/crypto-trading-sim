@@ -28,7 +28,6 @@ public class AuthController {
         String userPassword = userDTO.getPassword();
         String username = userDTO.getUsername();
         int id = userDTO.getId();
-
         if (userPassword == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Email not found");
         }

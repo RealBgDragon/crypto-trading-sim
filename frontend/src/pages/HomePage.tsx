@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { TrendingUp, TrendingDown, RefreshCw, Moon, Search, Sun, ExternalLink, Clock, AlertCircle, LogOut, User, LogIn } from 'lucide-react';
+import { TrendingUp, TrendingDown, RefreshCw, Moon, Search, Sun, ExternalLink, Clock, AlertCircle, LogOut, User, LogIn, RefreshCcw } from 'lucide-react';
 import axios from 'axios';
 
 // Map of crypto names to Kraken symbols
@@ -14,7 +14,7 @@ const krakenSymbolMap: { [key: string]: string } = {
     USDC: "USDC_USD",
     Cardano: "ADA_USD",
     Avalanche: "AVAX_USD",
-    Dogecoin: "DOGE_USD",
+    Akash: "AKT_USD",
     Polkadot: "DOT_USD",
     "Shiba Inu": "SHIB_USD",
     Polygon: "MATIC_USD",
@@ -38,7 +38,7 @@ const cryptoList = [
     { name: "USDC", symbol: "USDC", color: "#2775CA" },
     { name: "Cardano", symbol: "ADA", color: "#0033AD" },
     { name: "Avalanche", symbol: "AVAX", color: "#E84142" },
-    { name: "Dogecoin", symbol: "DOGE", color: "#C2A633" },
+    { name: "Akash", symbol: "AKT", color: "#00D1FF" },
     { name: "Polkadot", symbol: "DOT", color: "#E6007A" },
     { name: "Shiba Inu", symbol: "SHIB", color: "#FFA409" },
     { name: "Polygon", symbol: "MATIC", color: "#8247E5" },
@@ -58,7 +58,7 @@ const mockChartData = Array.from({ length: 24 }, (_, i) => ({
 
 const getRandomElements = (array: { name: string; symbol: string; color: string; }[], n: number | undefined) => {
     const shuffled = [...array].sort(() => 0.5 - Math.random());
-    return shuffled.slice(0, n + 1);
+    return shuffled.slice(0, n);
 };
 
 export default function CryptoDashboard() {
@@ -72,13 +72,19 @@ export default function CryptoDashboard() {
     const [showNotification, setShowNotification] = useState(false);
     const [apiStatus, setApiStatus] = useState(false);
     const [topCurrencies, setTopCurrencies] = useState(cryptoList);
-    const [accountBalance, setAccountBalance] = useState(0);
+    const [accountBalance, setAccountBalance] = useState<number | string>(0);
     const [username, setUsername] = useState<string | null>(null);
+    const [userId, setUserId] = useState<number | null>(null);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [balanceResetStatus, setBalanceResetStatus] = useState<string | null>(null);
 
 
+    type PricePoint = {
+        date: string;
+        price: number;
+    };
 
-    const [topCurrencyPrices, setTopCurrencyPrices] = useState({});
+    const [topCurrencyPrices, setTopCurrencyPrices] = useState<Record<string, PricePoint[]>>({});
 
 
     // Theme-based style variables
@@ -114,18 +120,20 @@ export default function CryptoDashboard() {
 
         // Check if user is logged in
         const user = sessionStorage.getItem("user");
+
         if (user) {
             try {
                 const userData = JSON.parse(user);
-                setUsername(userData.name || userData.username || "User");
-                setIsLoggedIn(userData.isLoggedIn)
+                setUsername(userData.username || "User");
+                setUserId(userData.userId);
+                setIsLoggedIn(userData.isLoggedIn);
             } catch (e) {
                 setUsername(user);
             }
         }
 
         // Connect api on page load
-        axios.get(`http://localhost:8080/api/start`)
+        axios.get(`http://localhost:8080/api/status`)
             .then(() => setApiStatus(true))
             .catch(err => console.log('Error connecting to API: ', err));
 
@@ -137,12 +145,20 @@ export default function CryptoDashboard() {
     useEffect(() => {
         axios.post("http://localhost:8080/api/user/balance",
             {
-
+                userId: userId
             }
         )
-            .then(res => setAccountBalance(res.data))
+            .then(res => {
+                console.log(res);
+
+                if (typeof res.data === 'number') {
+                    setAccountBalance(res.data);
+                } else {
+                    setAccountBalance("Error getting balance");
+                }
+            })
             .catch(() => setAccountBalance(0))
-    }, []);
+    }, [userId]);
 
     const getItemPrice = async (pair: string) => {
         const res = await axios.get(`http://localhost:8080/api/price/${pair}`);
@@ -151,28 +167,12 @@ export default function CryptoDashboard() {
 
     useEffect(() => {
         const fetchData = async () => {
-            //setIsLoading(true);
-            // const selectedCryptoObj = cryptoList.find(c => c.name === selectedCrypto);
             const pair = krakenSymbolMap[selectedCrypto];
 
             try {
-                // console.log(topCurrencies);
                 const res = await getItemPrice(pair)
-                // const res = await axios.get(`http://localhost:8080/api/price/${pair}`);
-
-                const responses = await Promise.all(
-                    topCurrencies.map(async (c) => {
-                        const symbol = krakenSymbolMap[c.symbol];
-                        const price = await getItemPrice(symbol);
-                        console.log(`Response for ${c.symbol}:`, price); // Log each response
-                        return price;
-                    })
-                );
-
-                console.log(responses);
 
                 const lastPrice = res.data.price;
-
 
                 setChartData(prevData => {
                     const newPoint = {
@@ -187,11 +187,19 @@ export default function CryptoDashboard() {
                     return updatedChart;
                 });
 
+                const topCurrencyData = await Promise.all(
+                    topCurrencies.map(async (c) => {
+                        const symbol = krakenSymbolMap[c.name];
+                        const price = await getItemPrice(symbol);
+                        return price;
+                    })
+                );
+
                 setTopCurrencyPrices(prevPrices => {
                     const updated = { ...prevPrices };
-                    responses.forEach((res, index) => {
-                        const symbol = topCurrencies[index].symbol;
-                        const price = res.data.price;
+                    topCurrencyData.forEach((currency) => {
+                        const symbol = currency.data.pair;
+                        const price = currency.data.price;
 
                         const prev = updated[symbol] || [];
                         const newPoint = {
@@ -206,7 +214,6 @@ export default function CryptoDashboard() {
                     });
                     return updated;
                 });
-                // console.log(topCurrencyPrices);
 
 
                 setLastUpdated(new Date());
@@ -238,6 +245,40 @@ export default function CryptoDashboard() {
         window.location.reload();
     }
 
+    const handleResetBalance = async () => {
+        if (!userId) {
+            setBalanceResetStatus("Error: You must be logged in");
+            return;
+        }
+
+        try {
+            setIsLoading(true);
+            const response = await axios.post("http://localhost:8080/api/user/balance/recover", {
+                userId: userId
+            });
+
+            if (response.status === 200) {
+                // Refresh the balance after reset
+                const balanceResponse = await axios.post("http://localhost:8080/api/user/balance", {
+                    userId: userId
+                });
+
+                if (typeof balanceResponse.data === 'number') {
+                    setAccountBalance(balanceResponse.data);
+                }
+
+                setBalanceResetStatus("Balance successfully reset!");
+                setTimeout(() => setBalanceResetStatus(null), 3000);
+            }
+        } catch (error) {
+            console.error("Error resetting balance:", error);
+            setBalanceResetStatus("Failed to reset balance");
+            setTimeout(() => setBalanceResetStatus(null), 3000);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const priceChange = chartData[chartData.length - 1]?.price - chartData[0]?.price;
     const positiveChange = priceChange >= 0;
     const changePercent = ((priceChange / chartData[0]?.price) * 100).toFixed(2);
@@ -261,12 +302,26 @@ export default function CryptoDashboard() {
                     <div className="flex items-center gap-4">
                         {/* Account Balance */}
                         {username && (
-                            <div className={`${themeColors.card} px-4 py-2 rounded-lg border ${themeColors.border} shadow-md hidden md:block`}>
-                                <div className="text-xs uppercase font-semibold opacity-70">Balance</div>
-                                <div className="font-mono font-bold text-lg">
-                                    ${accountBalance.toLocaleString()}
-                                    <span className="text-xs ml-1 opacity-60">$</span>
+                            <div className="flex items-center gap-2">
+                                <div className={`${themeColors.card} px-4 py-2 rounded-lg border ${themeColors.border} shadow-md hidden md:block`}>
+                                    <div className="text-xs uppercase font-semibold opacity-70">Balance</div>
+                                    <div className="font-mono font-bold text-lg">
+                                        {accountBalance.toLocaleString()}
+                                        <span className="text-xs ml-1 opacity-60">$</span>
+                                    </div>
                                 </div>
+
+                                {/* Reset Balance Button */}
+                                <button
+                                    onClick={handleResetBalance}
+                                    disabled={isLoading}
+                                    className={`hidden md:flex items-center gap-1 px-3 py-2 rounded-lg border ${themeColors.border} 
+                                ${themeColors.card} ${themeColors.cardHover} shadow-md transition-colors hover:text-blue-400`}
+                                    title="Reset to starting balance"
+                                >
+                                    <RefreshCcw size={16} className={isLoading ? "animate-spin" : ""} />
+                                    <span className="text-sm font-medium">Reset</span>
+                                </button>
                             </div>
                         )}
 
@@ -507,15 +562,22 @@ export default function CryptoDashboard() {
                                 </span>
                             </h3>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {topCurrencies.slice(1, 7).map((crypto, index) => {
-                                    const name = crypto.name;
-                                    const currencyPrice = topCurrencyPrices.name;
-                                    const randomChange = (Math.random() * 10 - 3).toFixed(2);
-                                    const isPositive = parseFloat(randomChange) >= 0;
-                                    const miniChartData = Array.from({ length: 20 }, () => ({
-                                        date: '',
-                                        price: Math.random() * 100
-                                    }));
+                                {topCurrencies.slice(0, 6).map((crypto, index) => {
+                                    const pair = krakenSymbolMap[crypto.name].replace("_", "/");
+
+                                    const priceArray = topCurrencyPrices[pair];
+
+                                    const latestPrice = priceArray?.[priceArray.length - 1]?.price;
+                                    const previousPrice = priceArray?.[priceArray.length - 2]?.price;
+
+                                    let changePercentage = "0.00";
+                                    let isPositive = true;
+
+                                    if (latestPrice !== undefined && previousPrice !== undefined && previousPrice !== 0) {
+                                        const change = ((latestPrice - previousPrice) / previousPrice) * 100;
+                                        changePercentage = change.toFixed(2);
+                                        isPositive = change >= 0;
+                                    }
 
                                     return (
                                         <div key={index} className={`${themeColors.card} rounded-xl p-4 ${themeColors.border} shadow-sm transition-transform hover:shadow-lg hover:-translate-y-1 cursor-pointer`}>
@@ -534,21 +596,25 @@ export default function CryptoDashboard() {
                                                 </div>
                                                 <div className={`flex items-center font-medium text-sm ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
                                                     {isPositive ? <TrendingUp size={16} className="mr-1" /> : <TrendingDown size={16} className="mr-1" />}
-                                                    {randomChange}%
+                                                    {changePercentage}%
                                                 </div>
                                             </div>
                                             <div className="flex justify-between items-end">
                                                 <div>
-                                                    <span className="text-xl font-bold">${currencyPrice}</span>
+                                                    <span className="text-xl font-bold">
+                                                        {latestPrice !== undefined ? `$${latestPrice}` : "Loading..."}
+                                                    </span>
                                                 </div>
                                                 <div className="flex items-center gap-1 text-xs text-gray-400">
                                                     <ExternalLink size={14} />
                                                     <span>Details</span>
                                                 </div>
                                             </div>
+
+                                            {/* Use fetched priceArray for chart */}
                                             <div className="h-16 mt-2">
                                                 <ResponsiveContainer width="100%" height="100%">
-                                                    <AreaChart data={miniChartData}>
+                                                    <AreaChart data={priceArray}>
                                                         <defs>
                                                             <linearGradient id={`color${index}`} x1="0" y1="0" x2="0" y2="1">
                                                                 <stop offset="5%" stopColor={isPositive ? "#10b981" : "#ef4444"} stopOpacity={0.2} />

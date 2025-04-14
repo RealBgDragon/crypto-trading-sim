@@ -81,6 +81,7 @@ export default function CryptoDashboard() {
     const [balanceResetStatus, setBalanceResetStatus] = useState<string | null>(null);
     const [buyAmount, setBuyAmount] = useState("");
     const [tradeStatus, setTradeStatus] = useState<string | null>(null);
+    const [buyTradeStatus, setBuyTradeStatus] = useState<string | null>(null);
     const [holdings, setHoldings] = useState<any[]>([]);
     const [sellAmount, setSellAmount] = useState("");
 
@@ -318,7 +319,7 @@ export default function CryptoDashboard() {
 
     const buyCrypto = async (cryptoSymbol: string, amount: string, currentPrice: number) => {
         if (!userId) {
-            setTradeStatus("Error: You must be logged in");
+            setBuyTradeStatus("Error: You must be logged in");
             return;
         }
 
@@ -342,15 +343,15 @@ export default function CryptoDashboard() {
                 // Update the holdings display if needed
                 await fetchUserHoldings();
 
-                setTradeStatus(`Successfully purchased ${parsedAmount} ${cryptoSymbol}!`);
+                setBuyTradeStatus(`Successfully purchased ${parsedAmount} ${cryptoSymbol}!`);
                 setBuyAmount(""); // Clear the input field
-                setTimeout(() => setTradeStatus(null), 3000);
+                setTimeout(() => setBuyTradeStatus(null), 3000);
             }
         } catch (error: any) {
             console.error("Error buying crypto:", error);
             const errorMessage = error.response?.data || "Failed to process purchase";
-            setTradeStatus(`Error: ${errorMessage}`);
-            setTimeout(() => setTradeStatus(null), 3000);
+            setBuyTradeStatus(`Error: ${errorMessage}`);
+            setTimeout(() => setBuyTradeStatus(null), 3000);
         } finally {
             setIsLoading(false);
         }
@@ -779,9 +780,9 @@ export default function CryptoDashboard() {
                                             )}
                                         </button>
 
-                                        {tradeStatus && (
-                                            <div className={`mt-2 p-2 rounded text-center ${tradeStatus.includes('Error') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                                                {tradeStatus}
+                                        {buyTradeStatus && (
+                                            <div className={`mt-2 p-2 rounded text-center ${buyTradeStatus.includes('Error') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                                {buyTradeStatus}
                                             </div>
                                         )}
                                     </div>

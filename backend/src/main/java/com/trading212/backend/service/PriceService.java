@@ -27,6 +27,10 @@ public class PriceService {
 //        this.latestPrice = priceDTO;
     }
 
+    public List<PriceDTO> getPriceHistory(String pair) {
+        return priceHistory.getOrDefault(pair, new ArrayList<>());
+    }
+
     public PriceDTO getLatestPrice(String pair){
         List<PriceDTO> history = priceHistory.get(pair);
         if (history != null && !history.isEmpty()){

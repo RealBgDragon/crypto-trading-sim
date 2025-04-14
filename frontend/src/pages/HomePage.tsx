@@ -175,6 +175,11 @@ export default function CryptoDashboard() {
         setStartTime(Date.now());
     }, []);
 
+    const getItemHistory = async (pair: string) => {
+        const res = await axios.get(`http://localhost:8080/api/price/history/${pair}`);
+        return res.data;
+    }
+
     useEffect(() => {
         const fetchData = async () => {
             const pair = krakenSymbolMap[selectedCrypto];
@@ -246,6 +251,27 @@ export default function CryptoDashboard() {
         return () => clearInterval(intervalId);
     }, [selectedCrypto, timeframe, topCurrencies]);
 
+    useEffect(() => {
+        const fetchHistory = async () => {
+            const pair = krakenSymbolMap[selectedCrypto];
+            try {
+                const history = await getItemHistory(pair);
+
+                // Map backend data to your chartData format with countdown times
+                const chartPoints = history.map((point: any, idx: number) => ({
+                    date: `${(history.length - 1 - idx) * 5}s`,
+                    price: point.price
+                }));
+
+                setChartData(chartPoints);
+            } catch (err) {
+                console.error('Error fetching history:', err);
+            }
+        };
+
+        fetchHistory();
+    }, [selectedCrypto]);
+
     const filteredCryptos = cryptoList.filter(crypto =>
         crypto.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         crypto.symbol.toLowerCase().includes(searchQuery.toLowerCase())
@@ -263,7 +289,7 @@ export default function CryptoDashboard() {
         }
 
         try {
-            setIsLoading(true);
+            // setIsLoading(true);
             const response = await axios.post("http://localhost:8080/api/user/balance/recover", {
                 userId: userId
             });
@@ -297,7 +323,7 @@ export default function CryptoDashboard() {
         }
 
         try {
-            setIsLoading(true);
+            // setIsLoading(true);
 
             // Format the amount as a number with limited decimal places
             const parsedAmount = parseFloat(parseFloat(amount).toFixed(8));
@@ -350,7 +376,7 @@ export default function CryptoDashboard() {
         }
 
         try {
-            setIsLoading(true);
+            // setIsLoading(true);
 
             const parsedAmount = parseFloat(parseFloat(amount).toFixed(8));
 
@@ -520,7 +546,7 @@ export default function CryptoDashboard() {
                                             : `${themeColors.cardHover}`}`}
                                         onClick={() => {
                                             setSelectedCrypto(crypto.name);
-                                            setChartData(mockChartData);
+                                            setChartData(initialChartData);
                                         }}
                                     >
                                         <div

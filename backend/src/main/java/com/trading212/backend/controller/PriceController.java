@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api")
 public class PriceController {
@@ -41,6 +43,12 @@ public class PriceController {
             System.out.println(e);
         }
         return null;
+    }
+
+    @GetMapping("/price/history/{pair}")
+    public List<PriceDTO> getPriceHistory(@PathVariable String pair){
+        pair = pair.replace("_", "/");
+        return priceService.getPriceHistory(pair);
     }
 
     @GetMapping("/stop")

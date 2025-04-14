@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { TrendingUp, TrendingDown, RefreshCw, Moon, Search, Sun, ExternalLink, Clock, AlertCircle, LogOut, User, LogIn, RefreshCcw } from 'lucide-react';
+import { TrendingUp, TrendingDown, RefreshCw, Moon, Search, Sun, ExternalLink, Clock, AlertCircle, LogOut, User, LogIn, RefreshCcw, Check } from 'lucide-react';
 import axios from 'axios';
 
 // Map of crypto names to Kraken symbols
@@ -51,10 +51,12 @@ const cryptoList = [
     { name: "Monero", symbol: "XMR", color: "#FF6600" }
 ];
 
-const mockChartData = Array.from({ length: 24 }, (_, i) => ({
-    date: `${i * 5} s`,
-    price: 0
+const initialChartData = Array.from({ length: 25 }, (_, i) => ({
+    date: `${120 - i * 5}s`,
+    price: 0,
 }));
+
+
 
 const getRandomElements = (array: { name: string; symbol: string; color: string; }[], n: number | undefined) => {
     const shuffled = [...array].sort(() => 0.5 - Math.random());
@@ -66,8 +68,8 @@ export default function CryptoDashboard() {
     const [selectedCrypto, setSelectedCrypto] = useState("Bitcoin");
     const [searchQuery, setSearchQuery] = useState("");
     const [isLoading, setIsLoading] = useState(false);
-    const [chartData, setChartData] = useState(mockChartData);
-    const [timeframe, setTimeframe] = useState("2min");
+    const [chartData, setChartData] = useState(initialChartData);
+    const [timeframe, setTimeframe] = useState("24h");
     const [lastUpdated, setLastUpdated] = useState(new Date());
     const [showNotification, setShowNotification] = useState(false);
     const [apiStatus, setApiStatus] = useState(false);
@@ -77,7 +79,10 @@ export default function CryptoDashboard() {
     const [userId, setUserId] = useState<number | null>(null);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [balanceResetStatus, setBalanceResetStatus] = useState<string | null>(null);
-
+    const [buyAmount, setBuyAmount] = useState("");
+    const [tradeStatus, setTradeStatus] = useState<string | null>(null);
+    const [holdings, setHoldings] = useState<any[]>([]);
+    const [sellAmount, setSellAmount] = useState("");
 
     type PricePoint = {
         date: string;
@@ -85,7 +90,6 @@ export default function CryptoDashboard() {
     };
 
     const [topCurrencyPrices, setTopCurrencyPrices] = useState<Record<string, PricePoint[]>>({});
-
 
     // Theme-based style variables
     const themeColors = darkMode ? {
@@ -100,7 +104,8 @@ export default function CryptoDashboard() {
         buttonBg: "bg-gray-700",
         buttonHover: "hover:bg-gray-600",
         selectedBg: "bg-blue-600/80",
-        chartGrid: "#334155"
+        chartGrid: "#334155",
+        input: "bg-gray-700 text-gray-100"
     } : {
         background: "bg-gray-50",
         card: "bg-white",
@@ -113,11 +118,11 @@ export default function CryptoDashboard() {
         buttonBg: "bg-gray-200",
         buttonHover: "hover:bg-gray-300",
         selectedBg: "bg-blue-500/80",
-        chartGrid: "#e2e8f0"
+        chartGrid: "#e2e8f0",
+        input: "bg-gray-100 text-gray-800"
     };
 
     useEffect(() => {
-
         // Check if user is logged in
         const user = sessionStorage.getItem("user");
 
@@ -143,21 +148,20 @@ export default function CryptoDashboard() {
     }, [selectedCrypto, username]);
 
     useEffect(() => {
-        axios.post("http://localhost:8080/api/user/balance",
-            {
-                userId: userId
-            }
-        )
-            .then(res => {
-                console.log(res);
+        if (userId) {
+            axios.post("http://localhost:8080/api/user/balance", { userId: userId })
+                .then(res => {
+                    if (typeof res.data === 'number') {
+                        setAccountBalance(res.data);
+                    } else {
+                        setAccountBalance("Error getting balance");
+                    }
+                })
+                .catch(() => setAccountBalance(0));
 
-                if (typeof res.data === 'number') {
-                    setAccountBalance(res.data);
-                } else {
-                    setAccountBalance("Error getting balance");
-                }
-            })
-            .catch(() => setAccountBalance(0))
+            // Fetch user holdings when user ID is available
+            fetchUserHoldings();
+        }
     }, [userId]);
 
     const getItemPrice = async (pair: string) => {
@@ -165,27 +169,39 @@ export default function CryptoDashboard() {
         return res;
     }
 
+    const [startTime, setStartTime] = useState(Date.now());
+
+    useEffect(() => {
+        setStartTime(Date.now());
+    }, []);
+
     useEffect(() => {
         const fetchData = async () => {
             const pair = krakenSymbolMap[selectedCrypto];
 
             try {
-                const res = await getItemPrice(pair)
-
+                const res = await getItemPrice(pair);
                 const lastPrice = res.data.price;
+
+                const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
 
                 setChartData(prevData => {
                     const newPoint = {
-                        date: `${prevData.length * 5} s`, // Ensure the date is a string, e.g., "Day 1", "Day 2"
+                        date: `0s`,
                         price: lastPrice,
                     };
 
-                    const updatedChart = [...prevData, newPoint];
-                    if (updatedChart.length > 30) {
-                        updatedChart.shift(); // Remove the first element if there are more than 30 points
-                    }
-                    return updatedChart;
+                    const updatedChart = [...prevData.slice(1), newPoint]; // remove first, push new
+
+                    // Update timestamps counting down from 120s
+                    const updatedWithTime = updatedChart.map((point, idx) => ({
+                        ...point,
+                        date: `${(updatedChart.length - 1 - idx) * 5}s`,
+                    }));
+
+                    return updatedWithTime;
                 });
+
 
                 const topCurrencyData = await Promise.all(
                     topCurrencies.map(async (c) => {
@@ -203,7 +219,7 @@ export default function CryptoDashboard() {
 
                         const prev = updated[symbol] || [];
                         const newPoint = {
-                            date: `${prev.length * 5} s`,
+                            date: `${elapsedSeconds}s`,
                             price: price,
                         };
 
@@ -215,14 +231,10 @@ export default function CryptoDashboard() {
                     return updated;
                 });
 
-
                 setLastUpdated(new Date());
-                setShowNotification(true);
-                setTimeout(() => setShowNotification(false), 3000);
             } catch (err) {
                 console.error(err);
             }
-            //setIsLoading(false);
         };
 
         fetchData();
@@ -232,7 +244,6 @@ export default function CryptoDashboard() {
 
         // Cleanup the interval on component unmount
         return () => clearInterval(intervalId);
-        // fetchData();
     }, [selectedCrypto, timeframe, topCurrencies]);
 
     const filteredCryptos = cryptoList.filter(crypto =>
@@ -274,6 +285,106 @@ export default function CryptoDashboard() {
             console.error("Error resetting balance:", error);
             setBalanceResetStatus("Failed to reset balance");
             setTimeout(() => setBalanceResetStatus(null), 3000);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const buyCrypto = async (cryptoSymbol: string, amount: string, currentPrice: number) => {
+        if (!userId) {
+            setTradeStatus("Error: You must be logged in");
+            return;
+        }
+
+        try {
+            setIsLoading(true);
+
+            // Format the amount as a number with limited decimal places
+            const parsedAmount = parseFloat(parseFloat(amount).toFixed(8));
+
+            const response = await axios.post("http://localhost:8080/api/trade/buy", {
+                userId: userId,
+                cryptoSymbol: cryptoSymbol,
+                amount: parsedAmount,
+                priceAtTransaction: currentPrice
+            });
+
+            if (response.status === 200) {
+                // Update the account balance
+                setAccountBalance(response.data.newBalance);
+
+                // Update the holdings display if needed
+                await fetchUserHoldings();
+
+                setTradeStatus(`Successfully purchased ${parsedAmount} ${cryptoSymbol}!`);
+                setBuyAmount(""); // Clear the input field
+                setTimeout(() => setTradeStatus(null), 3000);
+            }
+        } catch (error: any) {
+            console.error("Error buying crypto:", error);
+            const errorMessage = error.response?.data || "Failed to process purchase";
+            setTradeStatus(`Error: ${errorMessage}`);
+            setTimeout(() => setTradeStatus(null), 3000);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const fetchUserHoldings = async () => {
+        if (!userId) return;
+
+        try {
+            const response = await axios.get(`http://localhost:8080/api/trade/holdings/${userId}`);
+            if (response.status === 200) {
+                setHoldings(response.data);
+            }
+        } catch (error) {
+            console.error("Error fetching holdings:", error);
+        }
+    };
+
+    const sellCrypto = async (cryptoSymbol, amount, currentPrice) => {
+        if (!userId) {
+            setTradeStatus("Error: You must be logged in");
+            return;
+        }
+
+        try {
+            setIsLoading(true);
+
+            const parsedAmount = parseFloat(parseFloat(amount).toFixed(8));
+
+            const response = await axios.post("http://localhost:8080/api/trade/sell", {
+                userId: userId,
+                cryptoSymbol: cryptoSymbol,
+                amount: parsedAmount,
+                priceAtTransaction: currentPrice
+            });
+
+            if (response.status === 200) {
+                // Update the account balance
+                setAccountBalance(response.data.newBalance);
+
+                await fetchUserHoldings();
+
+                const profitLoss = response.data.profitLoss;
+                const isProfitable = profitLoss.isProfitable;
+                const profitLossAmount = profitLoss.profitLoss.toFixed(2);
+                const profitLossPercentage = profitLoss.profitLossPercentage.toFixed(2);
+
+                const statusMessage = isProfitable
+                    ? `Successfully sold ${parsedAmount} ${cryptoSymbol}! Profit: $${profitLossAmount} (${profitLossPercentage}%)`
+                    : `Successfully sold ${parsedAmount} ${cryptoSymbol}! Loss: $${Math.abs(profitLossAmount).toFixed(2)} (${Math.abs(profitLossPercentage).toFixed(2)}%)`;
+
+                setTradeStatus(statusMessage);
+                setSellAmount(""); // Clear the input field
+                setTimeout(() => setTradeStatus(null), 5000);
+            }
+        } catch (error) {
+            console.error("Error selling crypto:", error);
+            const errorMessage = error.response?.data || "Failed to process sale";
+            setTradeStatus(`Error: ${errorMessage}`);
+            setTimeout(() => setTradeStatus(null), 3000);
         } finally {
             setIsLoading(false);
         }
@@ -408,12 +519,9 @@ export default function CryptoDashboard() {
                                             ? `${themeColors.selectedBg} text-white`
                                             : `${themeColors.cardHover}`}`}
                                         onClick={() => {
-
                                             setSelectedCrypto(crypto.name);
                                             setChartData(mockChartData);
-
-                                        }
-                                        }
+                                        }}
                                     >
                                         <div
                                             className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white mr-3"
@@ -434,6 +542,32 @@ export default function CryptoDashboard() {
                                 </div>
                             )}
                         </div>
+                        {/* User Holdings Section */}
+                        {isLoggedIn && holdings.length > 0 && (
+                            <div className="p-4 border-t border-gray-700">
+                                <h3 className="text-lg font-semibold mb-3">Your Holdings</h3>
+                                <div className="space-y-3">
+                                    {holdings.map((holding, index) => {
+                                        const cryptoInfo = cryptoList.find(c => c.symbol === holding.crypto_symbol);
+                                        return (
+                                            <div key={index} className="flex items-center justify-between p-2 rounded-md bg-opacity-20 hover:bg-opacity-30 bg-blue-900">
+                                                <div className="flex items-center">
+                                                    <div
+                                                        className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white mr-2"
+                                                        style={{ backgroundColor: cryptoInfo?.color || '#3b82f6' }}
+                                                    >
+                                                        {holding.crypto_symbol.charAt(0)}
+                                                    </div>
+                                                    <span className="font-medium">{holding.crypto_symbol}</span>
+                                                </div>
+                                                <span className="font-mono">{parseFloat(holding.amount).toFixed(8)}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
                     </aside>
 
                     {/* Main Chart & Info */}
@@ -455,7 +589,6 @@ export default function CryptoDashboard() {
                                                 <span className={`text-lg ${themeColors.textMuted}`}>{currentCrypto?.symbol}</span>
                                             </h2>
                                             <div className="flex items-center mt-1">
-                                                {/* //! Fix */}
                                                 <span className="text-2xl font-semibold">${chartData[chartData.length - 1]?.price.toFixed(2)}</span>
                                                 <div className={`ml-3 flex items-center ${positiveChange ? 'text-green-500' : 'text-red-500'}`}>
                                                     {positiveChange ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
@@ -465,17 +598,6 @@ export default function CryptoDashboard() {
                                         </div>
                                     </div>
                                     <div className="flex flex-wrap items-center gap-3">
-                                        <div className="flex bg-gray-800/30 rounded-lg p-1">
-                                            {['24h', '7d', '30d'].map((tf) => (
-                                                <button
-                                                    key={tf}
-                                                    className={`px-4 py-2 rounded-md text-sm font-medium transition ${timeframe === tf ? `${themeColors.selectedBg} text-white` : ''}`}
-                                                    onClick={() => setTimeframe(tf)}
-                                                >
-                                                    {tf}
-                                                </button>
-                                            ))}
-                                        </div>
                                         <button
                                             className="p-3 rounded-md bg-blue-600 hover:bg-blue-700 text-white transition focus:outline-none shadow"
                                             onClick={() => {
@@ -549,6 +671,174 @@ export default function CryptoDashboard() {
                                             </AreaChart>
                                         </ResponsiveContainer>
                                     )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Buy Widget - ADDED FROM FIRST SNIPPET */}
+                        <div className={`${themeColors.card} rounded-xl shadow-md ${themeColors.border} overflow-hidden`}>
+                            <div className="p-6">
+                                <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-6">
+                                    <div className="flex items-center gap-4">
+                                        <div
+                                            className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg"
+                                            style={{ backgroundColor: currentCrypto?.color }}
+                                        >
+                                            {currentCrypto?.symbol.charAt(0)}
+                                        </div>
+                                        <div>
+                                            <h2 className="text-3xl font-bold flex items-center gap-2">
+                                                {selectedCrypto}
+                                                <span className={`text-lg ${themeColors.textMuted}`}>{currentCrypto?.symbol}</span>
+                                            </h2>
+                                            <div className="flex items-center mt-1">
+                                                <span className="text-2xl font-semibold">${chartData[chartData.length - 1]?.price.toFixed(2)}</span>
+                                                <div className={`ml-3 flex items-center ${positiveChange ? 'text-green-500' : 'text-red-500'}`}>
+                                                    {positiveChange ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
+                                                    <span className="ml-1 text-lg">{changePercent}%</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-col gap-3 w-full md:w-auto">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`flex items-center rounded-md overflow-hidden border ${themeColors.border}`}>
+                                                <input
+                                                    type="number"
+                                                    placeholder="Amount"
+                                                    value={buyAmount}
+                                                    onChange={(e) => setBuyAmount(e.target.value)}
+                                                    className={`p-2 w-full focus:outline-none ${themeColors.input}`}
+                                                    min="0.00000001"
+                                                    step="0.00000001"
+                                                />
+                                                <span className={`px-2 ${themeColors.textMuted}`}>{currentCrypto?.symbol}</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <div className={`text-sm ${themeColors.textMuted}`}>
+                                                Total: ${buyAmount ? (buyAmount * chartData[chartData.length - 1]?.price).toFixed(2) : '0.00'}
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            className="p-3 rounded-md bg-green-600 hover:bg-green-700 text-white transition focus:outline-none shadow w-full md:w-auto"
+                                            onClick={() => {
+                                                if (!buyAmount || buyAmount <= 0) {
+                                                    setTradeStatus("Please enter a valid amount");
+                                                    setTimeout(() => setTradeStatus(null), 3000);
+                                                    return;
+                                                }
+
+                                                buyCrypto(
+                                                    currentCrypto?.symbol,
+                                                    buyAmount,
+                                                    chartData[chartData.length - 1]?.price
+                                                );
+                                            }}
+                                            disabled={isLoading}
+                                        >
+                                            {isLoading ? (
+                                                <span className="flex items-center justify-center">
+                                                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                    </svg>
+                                                    Processing...
+                                                </span>
+                                            ) : (
+                                                <span>Buy {currentCrypto?.symbol}</span>
+                                            )}
+                                        </button>
+
+                                        {tradeStatus && (
+                                            <div className={`mt-2 p-2 rounded text-center ${tradeStatus.includes('Error') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                                {tradeStatus}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex flex-col gap-3 w-full md:w-auto">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`flex items-center rounded-md overflow-hidden border ${themeColors.border}`}>
+                                                <input
+                                                    type="number"
+                                                    placeholder="Amount"
+                                                    value={sellAmount}
+                                                    onChange={(e) => setSellAmount(e.target.value)}
+                                                    className={`p-2 w-full focus:outline-none ${themeColors.input}`}
+                                                    min="0.00000001"
+                                                    step="0.00000001"
+                                                />
+                                                <span className={`px-2 ${themeColors.textMuted}`}>{currentCrypto?.symbol}</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <div className={`text-sm ${themeColors.textMuted}`}>
+                                                Total: ${sellAmount ? (sellAmount * chartData[chartData.length - 1]?.price).toFixed(2) : '0.00'}
+                                            </div>
+
+                                            {/* Show current holding if any */}
+                                            {holdings && holdings.some(h => h.crypto_symbol === currentCrypto?.symbol) && (
+                                                <div className={`text-sm ${themeColors.textMuted}`}>
+                                                    Your holding: {holdings.find(h => h.crypto_symbol === currentCrypto?.symbol)?.amount} {currentCrypto?.symbol}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <button
+                                            className="p-3 rounded-md bg-red-600 hover:bg-red-700 text-white transition focus:outline-none shadow w-full md:w-auto"
+                                            onClick={() => {
+                                                if (!sellAmount || sellAmount <= 0) {
+                                                    setTradeStatus("Please enter a valid amount");
+                                                    setTimeout(() => setTradeStatus(null), 3000);
+                                                    return;
+                                                }
+
+                                                // Check if user has enough of the crypto
+                                                const currentHolding = holdings.find(h => h.crypto_symbol === currentCrypto?.symbol);
+                                                const currentAmount = currentHolding ? parseFloat(currentHolding.amount) : 0;
+
+                                                if (!currentHolding || currentAmount < parseFloat(sellAmount)) {
+                                                    setTradeStatus(`Error: Insufficient ${currentCrypto?.symbol} balance`);
+                                                    setTimeout(() => setTradeStatus(null), 3000);
+                                                    return;
+                                                }
+
+                                                sellCrypto(
+                                                    currentCrypto?.symbol,
+                                                    sellAmount,
+                                                    chartData[chartData.length - 1]?.price
+                                                );
+                                            }}
+                                            disabled={isLoading}
+                                        >
+                                            {isLoading ? (
+                                                <span className="flex items-center justify-center">
+                                                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                    </svg>
+                                                    Processing...
+                                                </span>
+                                            ) : (
+                                                <span>Sell {currentCrypto?.symbol}</span>
+                                            )}
+                                        </button>
+
+                                        {tradeStatus && (
+                                            <div className={`mt-2 p-2 rounded text-center ${tradeStatus.includes('Error')
+                                                ? 'bg-red-100 text-red-700'
+                                                : tradeStatus.includes('Loss')
+                                                    ? 'bg-orange-100 text-orange-700'
+                                                    : 'bg-green-100 text-green-700'
+                                                }`}>
+                                                {tradeStatus}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>

@@ -1,6 +1,5 @@
 package com.trading212.backend.repository;
 
-
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -35,4 +34,18 @@ public class UserAccountRepository {
         }
     }
 
+    // New method to update balance with a specific amount
+    public String updateUserBalance(int userId, double newBalance){
+        String sql = "UPDATE account_balance SET balance = ? WHERE user_id = ?";
+        try{
+            int rowsAffected = jdbc.update(sql, newBalance, userId);
+            if (rowsAffected > 0) {
+                return "Success";
+            } else {
+                return "No such user";
+            }
+        } catch (Exception e){
+            return "Error: " + e.getMessage();
+        }
+    }
 }
